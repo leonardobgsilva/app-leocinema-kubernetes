@@ -1,0 +1,27 @@
+Para acessar a aplicação LeoCinema, você pode seguir as instruções abaixo:
+
+{{- if .Values.ingressEnabled }}
+Com o acesso externo habilitado, você pode usar os seguintes endereços IP para acessar as aplicações:
+
+   Frontend:
+   http://{{ .Values.ingressIp }}
+
+   Backend:
+   http://{{ .Values.ingressIp }}/api/health
+
+{{- else }}
+Com o acesso externo desabilitado, você pode acessar as aplicações internamente:
+
+   Siga as instruções para encaminhar as portas dos serviços backend e frontend, e depois acesse as aplicações localmente.
+
+   Frontend:
+   kubectl port-forward svc/{{ include "leocinema.name" . }}-frontend-svc {{ .Values.localhost.frontend }}:80 -n leocinema
+
+   Com o port-forward feito você pode executar a aplicação usando localhost:{{ .Values.localhost.frontend }}
+
+   Backend:
+   kubectl port-forward svc/{{ include "leocinema.name" . }}-backend-svc {{ .Values.localhost.backend }}:80 -n leocinema
+
+   Com o port-forward feito você pode executar a aplicação usando localhost:{{ .Values.localhost.backend }}/health
+
+{{- end }}

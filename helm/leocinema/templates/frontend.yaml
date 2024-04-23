@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "leocinema.name" . }}-frontend-svc
+  labels:
+    app: {{ include "leocinema.name" . }}-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: {{ .Values.frontend.servicePort }}
+      targetPort: 3000
+  selector:
+    app: {{ include "leocinema.name" . }}-frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "leocinema.name" . }}-frontend-dep
+  labels:
+    app: {{ include "leocinema.name" . }}-frontend
+spec:
+  replicas: {{ .Values.frontend.minReplicas }}
+  strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 25%
+        maxSurge: 25%
+  selector:
+    matchLabels:
+      app: {{ include "leocinema.name" . }}-frontend
+  template:
+    metadata:
+      labels:
+        app: {{ include "leocinema.name" . }}-frontend
+    spec:
+      {{- if .Values.nodeSelectorEnabled }}
+      nodeSelector:
+        tier: "app"
+      {{- end }}
+      containers:
+        - name: leocinema
+          image: "{{ .Values.frontend.image }}"
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: BACKEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "leocinema.name" . }}-configmap
+                  key: BACKEND_URL
+          resources:
+            requests:
+              cpu: {{ .Values.frontend.cpu }}
+              memory: {{ .Values.frontend.memory }}
+          imagePullPolicy: {{ .Values.frontend.pullPolicy }}
+      restartPolicy: Always
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "leocinema.name" . }}-frontend-hpa
+spec:
+  maxReplicas: {{ .Values.frontend.maxReplicas }}
+  minReplicas: {{ .Values.frontend.minReplicas }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "leocinema.name" . }}-frontend-dep
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.averageUtilization }}
+{{- if .Values.ingressEnabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "leocinema.name" . }}-frontend-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host:
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "leocinema.name" . }}-frontend-svc
+                port:
+                  number: {{ .Values.frontend.servicePort }}
+{{- end }}

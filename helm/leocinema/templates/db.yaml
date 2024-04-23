@@ -1,0 +1,116 @@
+{{- if .Values.createDb }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.env.db_host }}
+  labels:
+    app: {{ .Values.env.db_host }}
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: {{ .Values.db.servicePort }}
+      targetPort: 3306
+  selector:
+    app: {{ include "leocinema.name" . }}-db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "leocinema.name" . }}-db
+  labels:
+    app: {{ include "leocinema.name" . }}-db
+spec:
+  serviceName: {{ .Values.env.db_host }}
+  replicas: {{ .Values.db.minReplicas }}
+  selector:
+    matchLabels:
+      app: {{ include "leocinema.name" . }}-db
+  template:
+    metadata:
+      labels:
+        app: {{ include "leocinema.name" . }}-db
+    spec:
+      {{- if .Values.nodeSelectorEnabled }}
+      nodeSelector:
+        tier: "db"
+      {{- end }}
+      containers:
+        - name: mariadb
+          image: "{{ .Values.db.image }}"
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leocinema.name" . }}-secrets
+                  key: MARIADB_ROOT_PASSWORD
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leocinema.name" . }}-secrets
+                  key: DB_DATABASE
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leocinema.name" . }}-secrets
+                  key: DB_USER
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "leocinema.name" . }}-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/mariadb
+      securityContext:  
+        fsGroup: 1001  
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.db.requests.storage }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "leocinema.name" . }}-db-hpa
+spec:
+  maxReplicas: {{ .Values.db.maxReplicas }}
+  minReplicas: {{ .Values.db.minReplicas }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "leocinema.name" . }}-db
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.db.averageUtilization }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "leocinema.name" . }}-db-access-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "leocinema.name" . }}-db
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: {{ include "leocinema.name" . }}-backend
+{{- end }}

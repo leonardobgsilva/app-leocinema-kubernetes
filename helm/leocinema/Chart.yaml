@@ -1,0 +1,10 @@
+apiVersion: v2
+name: leocinema
+description: A Helm chart for deploying the LeoCinema application
+version: 1.0.0
+appVersion: 1.0.0
+type: application
+maintainers:
+  - name: Leonardo Borges
+    email: leoborges0510@gmail.com
+    url: https://leonardobgsilva.github.io

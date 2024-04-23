@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: leocinema
+  namespace: argocd
+spec:
+  destination:
+    namespace: leocinema
+    server: 'https://kubernetes.default.svc'
+  source:
+    path: leocinema
+    repoURL: 'https://github.com/Ll2223/leocinema-helm.git'
+    targetRevision: main
+  sources: []
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true

@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-leocinema-svc
+  namespace: leocinema
+  labels:
+    db: mariadb-leocinema
+    tier: db
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  selector:
+    db: mariadb-leocinema
+    tier: db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: leocinema
+spec:
+  serviceName: mariadb-leocinema-svc
+  replicas: 3
+  selector:
+    matchLabels:
+      db: mariadb-leocinema
+      tier: db
+  template:
+    metadata:
+      labels:
+        db: mariadb-leocinema
+        tier: db
+    spec:
+      nodeSelector:
+        tier: "db"
+      containers:
+        - name: mariadb
+          image: bitnami/mariadb:latest
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: leocinema-secrets
+                  key: MARIADB_ROOT_PASSWORD
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: leocinema-secrets
+                  key: MARIADB_DATABASE
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: leocinema-secrets
+                  key: MARIADB_USER
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: leocinema-secrets
+                  key: MARIADB_PASSWORD
+  volumeClaimTemplates:
+    - metadata:
+        name: mariadb-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: leocinema
+  name: mariadb-hpa
+spec:
+  maxReplicas: 9
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: mariadb
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-access-policy
+  namespace: leocinema
+spec:
+  podSelector:
+    matchLabels:
+      db: mariadb-leocinema
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: leocinema-backend

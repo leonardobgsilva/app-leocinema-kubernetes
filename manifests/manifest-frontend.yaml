@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: leocinema-frontend-svc
+  namespace: leocinema
+  labels:
+    app: leocinema-frontend
+    tier: app
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  selector:
+    app: leocinema-frontend
+    tier: app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leocinema-frontend-dep
+  namespace: leocinema
+  labels:
+    app: leocinema-frontend
+    tier: app
+spec:
+  selector:
+    matchLabels:
+      app: leocinema-frontend
+      tier: app
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  template:
+    metadata:
+      labels:
+        app: leocinema-frontend
+        tier: app
+    spec:
+      nodeSelector:
+        tier: "app"
+      containers:
+        - name: leocinema-frontend
+          image: leobgs/leocinema-frontend:1.0.0
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+          - name: BACKEND_URL
+            valueFrom:
+              configMapKeyRef:
+                name: leocinema-configmap
+                key: BACKEND_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          imagePullPolicy: Always
+      restartPolicy: Always
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: leocinema
+  name: leocinema-frontend-hpa
+spec:
+  maxReplicas: 9
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: leocinema-frontend-dep
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-public
+  namespace: leocinema
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host:
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: leocinema-frontend-svc
+            port:
+              number: 80

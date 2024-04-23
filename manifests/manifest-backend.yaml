@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: leocinema-backend-svc
+  namespace: leocinema
+  labels:
+    app: leocinema-backend
+    tier: app
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3333
+  selector:
+    app: leocinema-backend
+    tier: app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leocinema-backend-dep
+  namespace: leocinema
+  labels:
+    app: leocinema-backend
+    tier: app
+spec:
+  selector:
+    matchLabels:
+      app: leocinema-backend
+      tier: app
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  template:
+    metadata:
+      labels:
+        app: leocinema-backend
+        tier: app
+    spec:
+      nodeSelector:
+        tier: "app"
+      containers:
+        - name: leocinema
+          image: leobgs/leocinema-backend:1.0.0
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3333
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - name: http
+              containerPort: 3333
+              protocol: TCP
+          env:
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: leocinema-secrets
+                key: DB_HOST
+          - name: DB_DATABASE
+            valueFrom:
+              secretKeyRef:
+                name: leocinema-secrets
+                key: MARIADB_DATABASE
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: leocinema-secrets
+                key: MARIADB_USER
+          # - name: DB_PASSWORD
+          #   valueFrom:
+          #     secretKeyRef:
+          #       name: leocinema-secrets
+          #       key: MARIADB_PASSWORD
+          - name: DB_PASSWORD
+            value: "senhaerrada"
+          - name: FRONTEND_URL
+            valueFrom:
+              configMapKeyRef:
+                name: leocinema-configmap
+                key: FRONTEND_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          imagePullPolicy: Always
+      restartPolicy: Always
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: leocinema
+  name: leocinema-backend-hpa
+spec:
+  maxReplicas: 9
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: leocinema-backend-dep
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-public-api
+  namespace: leocinema
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api/?(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: leocinema-backend-svc
+            port:
+              number: 80
