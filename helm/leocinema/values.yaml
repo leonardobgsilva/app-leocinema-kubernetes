@@ -2,7 +2,7 @@ createDb: true #true or false
 ingressEnabled: true #true or false
 nodeSelectorEnabled: true #true or false
 
-ingressIp: "20.242.147.72"
+ingressIp: "<INGRESS-IP>"
 
 # localhost:
 #   frontend: 8485
