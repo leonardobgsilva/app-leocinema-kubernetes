@@ -18,7 +18,7 @@ db:
       storage: 1Gi
 
 backend:
-    image: leobgs/leocinema-backend:1.0.0
+    image: leobgs/leocinema-backend:argocd
     servicePort: 80
     pullPolicy: IfNotPresent
     minReplicas: 1
