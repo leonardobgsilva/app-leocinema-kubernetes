@@ -16,7 +16,7 @@ Full deployment of the **LeoCinema** application on Kubernetes, with support for
                │                                   │
         ┌──────▼──────┐                   ┌────────▼──────┐
         │  Frontend   │                   │    Backend    │
-        │  (React)    │ ───────────────►  │   (API REST)  │
+        │  (HTML/JS)  │ ───────────────►  │   (API REST)  │
         └─────────────┘                   └───────┬───────┘
                                                   │
                                          ┌────────▼──────┐
@@ -64,16 +64,18 @@ Choose one of the three paths below. They are independent of each other.
 minikube start
 minikube addons enable ingress
 
-# Get the Minikube IP
-minikube ip
+# Start the tunnel (keep this terminal open)
+minikube tunnel
 
-# Deploy
+# Deploy (use 127.0.0.1 as ingressIp when using minikube tunnel)
 helm install leocinema helm/leocinema/ \
   --namespace leocinema \
   --create-namespace \
-  --set ingressIp="<MINIKUBE-IP>" \
+  --set ingressIp="127.0.0.1" \
   --set nodeSelectorEnabled=false
 ```
+
+> **Windows with Docker driver:** the Minikube IP (`minikube ip`) is not directly accessible from Windows. Use `minikube tunnel` and set `ingressIp` to `127.0.0.1`.
 
 ### Cloud (EKS, GKE, AKS...)
 
@@ -109,9 +111,9 @@ Before applying, edit `environment/argocd.yaml` with your environment values:
 helm:
   parameters:
     - name: ingressIp
-      value: "<INGRESS-IP>"     # minikube ip or cloud external IP
+      value: "127.0.0.1"    # 127.0.0.1 for Minikube tunnel on Windows, or cloud external IP
     - name: nodeSelectorEnabled
-      value: "false"            # false for Minikube, true for cloud
+      value: "false"         # false for Minikube, true for cloud
 ```
 
 ```bash
@@ -124,7 +126,15 @@ kubectl apply \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 # Get the admin password
+# Linux/macOS:
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+# PowerShell:
+[System.Text.Encoding]::UTF8.GetString(
+    [System.Convert]::FromBase64String(
+        (kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")
+    )
+)
 
 # Access the dashboard (http://localhost:8080)
 kubectl port-forward svc/argocd-server -n argocd 8080:443
@@ -136,7 +146,7 @@ kubectl apply -f environment/argocd.yaml
 ArgoCD will automatically sync with the repository and keep the cluster state aligned with the code.
 
 > Before applying, make sure `values.yaml` is configured correctly:
-> - **Local (Minikube):** set `ingressIp` to the Minikube IP and `nodeSelectorEnabled: false`
+> - **Local (Minikube):** set `ingressIp` to `127.0.0.1`, run `minikube tunnel`, and set `nodeSelectorEnabled: false`
 > - **Cloud:** set `ingressIp` to the external Ingress IP and optionally label your nodes with `tier=app` / `tier=db`
 
 ---
@@ -145,7 +155,7 @@ ArgoCD will automatically sync with the repository and keep the cluster state al
 
 ```bash
 # Edit the Ingress IP in manifest-env.yaml before applying
-# For local (Minikube): use the Minikube IP and remove the nodeSelector from backend, frontend and db manifests
+# For local (Minikube): use 127.0.0.1 (with minikube tunnel) and remove the nodeSelector from backend, frontend and db manifests
 kubectl apply -f manifests/manifest-env.yaml
 kubectl apply -f manifests/manifest-db.yaml
 kubectl apply -f manifests/manifest-backend.yaml
@@ -161,10 +171,27 @@ kubectl apply -f manifests/manifest-frontend.yaml
 | `ingressEnabled` | Enables the external Ingress | `true` |
 | `nodeSelectorEnabled` | Enables the nodeSelector | `true` |
 | `ingressIp` | External Ingress IP | `<INGRESS-IP>` |
-| `db.minReplicas` | Minimum database replicas | `3` |
+| `db.minReplicas` | Minimum database replicas | `1` |
 | `db.maxReplicas` | Maximum database replicas | `15` |
-| `backend.image` | Backend Docker image | `leobgs/leocinema-backend:1.0.0` |
-| `frontend.image` | Frontend Docker image | `leobgs/leocinema-frontend:1.0.0` |
+| `backend.image` | Backend Docker image | `leobgs/leocinema-backend:argocd` |
+| `frontend.image` | Frontend Docker image | `leobgs/leocinema-frontend:red` |
+
+## 🎨 Frontend Themes
+
+The frontend image supports three color themes, set at build time via the Docker tag:
+
+| Tag | Theme |
+|---|---|
+| `:red` | Red (default) |
+| `:green` | Green |
+| `:blue` | Blue |
+
+To switch themes, update `frontend.image` in `values.yaml`:
+
+```yaml
+frontend:
+  image: leobgs/leocinema-frontend:green
+```
 
 ## 🌐 Accessing the Application
 
@@ -177,7 +204,5 @@ Without Ingress (local port-forward):
 kubectl port-forward svc/leocinema-frontend-svc 8485:80 -n leocinema
 kubectl port-forward svc/leocinema-backend-svc 8687:80 -n leocinema
 ```
-
-> **WSL users:** the Minikube IP is not directly accessible from Windows. Use port-forward and access via `http://localhost:8485`.
 
 **Leonardo Borges** — [leonardobgsilva.github.io](https://leonardobgsilva.github.io)
