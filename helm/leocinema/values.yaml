@@ -11,7 +11,7 @@ ingressIp: "<INGRESS-IP>"
 db:
     image: bitnami/mariadb:latest
     servicePort: 3306
-    minReplicas: 3
+    minReplicas: 1
     maxReplicas: 15
     averageUtilization: 70
     requests:
@@ -21,7 +21,7 @@ backend:
     image: leobgs/leocinema-backend:1.0.0
     servicePort: 80
     pullPolicy: IfNotPresent
-    minReplicas: 3
+    minReplicas: 1
     maxReplicas: 15
     averageUtilization: 70
     requests:
@@ -32,7 +32,7 @@ frontend:
     image: leobgs/leocinema-frontend:1.0.0
     servicePort: 80
     pullPolicy: IfNotPresent
-    minReplicas: 3
+    minReplicas: 1
     maxReplicas: 15
     averageUtilization: 70
     requests:

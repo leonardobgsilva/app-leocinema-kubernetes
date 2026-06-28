@@ -11,6 +11,12 @@ spec:
     path: helm/leocinema
     repoURL: 'https://github.com/leonardobgsilva/app-leocinema-kubernetes.git'
     targetRevision: main
+    helm:
+      parameters:
+        - name: ingressIp
+          value: "<INGRESS-IP>"
+        - name: nodeSelectorEnabled
+          value: "false"
   sources: []
   project: default
   syncPolicy:
