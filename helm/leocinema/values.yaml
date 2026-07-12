@@ -29,7 +29,7 @@ backend:
       memory: "200Mi"
 
 frontend:
-    image: leobgs/leocinema-frontend:green
+    image: leobgs/leocinema-frontend:red
     servicePort: 80
     pullPolicy: IfNotPresent
     minReplicas: 1
