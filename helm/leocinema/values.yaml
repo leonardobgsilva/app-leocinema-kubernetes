@@ -21,7 +21,7 @@ backend:
     image: leobgs/leocinema-backend:argocd
     servicePort: 80
     pullPolicy: IfNotPresent
-    minReplicas: 5
+    minReplicas: 1
     maxReplicas: 15
     averageUtilization: 70
     requests:
@@ -29,10 +29,10 @@ backend:
       memory: "200Mi"
 
 frontend:
-    image: leobgs/leocinema-frontend:blue
+    image: leobgs/leocinema-frontend:red
     servicePort: 80
     pullPolicy: IfNotPresent
-    minReplicas: 5
+    minReplicas: 1
     maxReplicas: 15
     averageUtilization: 70
     requests:
