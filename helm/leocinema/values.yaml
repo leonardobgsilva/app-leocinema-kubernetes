@@ -1,47 +1,48 @@
-createDb: true #true or false
-ingressEnabled: true #true or false
-nodeSelectorEnabled: true #true or false
+createDb: false         # DB is managed by Terraform (RDS)
+managedByTerraform: true # Secret + ConfigMap managed by Terraform modules/kubernetes
+ingressEnabled: true    # backend ingress
+frontendEnabled: false  # frontend runs on S3+CloudFront, not in Kubernetes
+nodeSelectorEnabled: false
 
-ingressIp: "<INGRESS-IP>"
-
-# localhost:
-#   frontend: 8485
-#   backend: 8687
+ingressIp: ""           # set via ArgoCD helm parameter
 
 db:
-    image: bitnami/mariadb:latest
-    servicePort: 3306
-    minReplicas: 3
-    maxReplicas: 15
-    averageUtilization: 70
-    requests:
-      storage: 1Gi
+  image: bitnami/mariadb:latest
+  servicePort: 3306
+  minReplicas: 1
+  maxReplicas: 3
+  averageUtilization: 70
+  requests:
+    storage: 1Gi
 
 backend:
-    image: leobgs/leocinema-backend:argocd
-    servicePort: 80
-    pullPolicy: IfNotPresent
-    minReplicas: 3
-    maxReplicas: 15
-    averageUtilization: 70
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
+  image: leobgs/leocinema-backend:argocd
+  servicePort: 80
+  pullPolicy: IfNotPresent
+  minReplicas: 2
+  maxReplicas: 6
+  averageUtilization: 70
+  requests:
+    cpu: "100m"
+    memory: "200Mi"
 
+# frontend block kept for local dev (frontendEnabled: true)
 frontend:
-    image: leobgs/leocinema-frontend:red
-    servicePort: 80
-    pullPolicy: IfNotPresent
-    minReplicas: 3
-    maxReplicas: 15
-    averageUtilization: 70
-    requests:
-      cpu: "100m"
-      memory: "200Mi"
+  image: leobgs/leocinema-frontend:red
+  servicePort: 80
+  pullPolicy: IfNotPresent
+  minReplicas: 2
+  maxReplicas: 6
+  averageUtilization: 70
+  requests:
+    cpu: "100m"
+    memory: "200Mi"
 
+# env block used only when createDb: true (local dev with in-cluster MariaDB)
+# In production these values come from the Kubernetes Secret managed by Terraform.
 env:
-  mariadb_root_password: "leo29032024-prd"
-  db_host: "mariadb-prd-svc"
-  db_database: "leocinemadb-prd"
-  db_user: "leocinemauser-prd"
-  db_password: "leocinemapass-prd"
+  mariadb_root_password: ""
+  db_host: ""
+  db_database: ""
+  db_user: ""
+  db_password: ""
