@@ -1,3 +1,10 @@
+{{/*
+  Frontend is served from S3 + CloudFront.
+  This template is kept for local/dev use only.
+  In production (ArgoCD), frontendEnabled is set to false
+  via Helm parameter and no Kubernetes resources are created.
+*/}}
+{{- if .Values.frontendEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,10 +29,10 @@ metadata:
 spec:
   replicas: {{ .Values.frontend.minReplicas }}
   strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 25%
-        maxSurge: 25%
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
   selector:
     matchLabels:
       app: {{ include "leocinema.name" . }}-frontend
@@ -58,8 +65,8 @@ spec:
                   key: BACKEND_URL
           resources:
             requests:
-              cpu: {{ .Values.frontend.cpu }}
-              memory: {{ .Values.frontend.memory }}
+              cpu: {{ .Values.frontend.requests.cpu }}
+              memory: {{ .Values.frontend.requests.memory }}
           imagePullPolicy: {{ .Values.frontend.pullPolicy }}
       restartPolicy: Always
 ---
@@ -102,4 +109,5 @@ spec:
                 name: {{ include "leocinema.name" . }}-frontend-svc
                 port:
                   number: {{ .Values.frontend.servicePort }}
+{{- end }}
 {{- end }}
