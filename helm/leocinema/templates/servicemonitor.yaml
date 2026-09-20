@@ -1,0 +1,24 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+# Tells Prometheus (kube-prometheus-stack) to scrape the backend's /metrics.
+# Prometheus is configured to select ServiceMonitors from every namespace
+# (monitoring/kube-prometheus-stack-values.yaml), so no release label is needed.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "leocinema.name" . }}-backend
+  labels:
+    app: {{ include "leocinema.name" . }}-backend
+spec:
+  # Same namespace as this ServiceMonitor by default: one per theme namespace.
+  selector:
+    matchLabels:
+      app: {{ include "leocinema.name" . }}-backend
+  # Copies the Service's `theme` label onto every scraped series
+  # (red / green / blue), so dashboards can filter by environment.
+  targetLabels:
+    - theme
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+{{- end }}

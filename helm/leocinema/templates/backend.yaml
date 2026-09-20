@@ -4,12 +4,22 @@ metadata:
   name: {{ include "leocinema.name" . }}-backend-svc
   labels:
     app: {{ include "leocinema.name" . }}-backend
+    {{- if .Values.theme }}
+    theme: {{ .Values.theme | quote }}
+    {{- end }}
 spec:
   type: ClusterIP
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: {{ .Values.backend.servicePort }}
       targetPort: 3333
+    # Scraped by Prometheus (ServiceMonitor). The Ingress only routes the
+    # `http` port above, so /metrics is never reachable from the internet.
+    - name: metrics
+      protocol: TCP
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
   selector:
     app: {{ include "leocinema.name" . }}-backend
 ---
@@ -20,7 +30,10 @@ metadata:
   labels:
     app: {{ include "leocinema.name" . }}-backend
 spec:
-  replicas: {{ .Values.backend.minReplicas }}
+  # No `replicas` here on purpose: the HPA below owns the replica count.
+  # A fixed value would make ArgoCD (selfHeal) reset the Deployment to
+  # minReplicas on every sync and fight the autoscaler. The HPA starts
+  # the Deployment at minReplicas.
   strategy:
       type: RollingUpdate
       rollingUpdate:
@@ -51,7 +64,12 @@ spec:
             - name: http
               containerPort: 3333
               protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
           env:
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
@@ -79,8 +97,8 @@ spec:
                   key: FRONTEND_URL
           resources:
             requests:
-              cpu: {{ .Values.backend.cpu }}
-              memory: {{ .Values.backend.memory }}
+              cpu: {{ .Values.backend.requests.cpu }}
+              memory: {{ .Values.backend.requests.memory }}
           imagePullPolicy: {{ .Values.backend.pullPolicy }}
       restartPolicy: Always
 ---
@@ -116,7 +134,7 @@ spec:
     - host:
       http:
         paths:
-          - path: /api/?(.*)
+          - path: {{ if .Values.theme }}/{{ .Values.theme }}{{ end }}/api/?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
