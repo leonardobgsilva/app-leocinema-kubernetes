@@ -1,0 +1,24 @@
+# Extra monitoring resources delivered by the `monitoring` ArgoCD Application
+# (third source, next to the kube-prometheus-stack chart and its values file).
+#
+# The dashboards live as plain JSON files in ./dashboards, so they stay
+# readable and editable in Git. Kustomize turns each one into a ConfigMap
+# labelled `grafana_dashboard: "1"`; the Grafana sidecar
+# (see kube-prometheus-stack-values.yaml) watches for that label and loads the
+# dashboard automatically. Editing the JSON and committing is all it takes.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+generatorOptions:
+  # Keep a stable ConfigMap name so an edit updates it in place (a content hash
+  # suffix would create a new ConfigMap on every change).
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
+
+configMapGenerator:
+  - name: leocinema-dashboards
+    files:
+      - dashboards/leocinema-environments.json

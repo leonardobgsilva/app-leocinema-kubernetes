@@ -27,7 +27,7 @@ metadata:
   labels:
     app: {{ include "leocinema.name" . }}-frontend
 spec:
-  replicas: {{ .Values.frontend.minReplicas }}
+  # `replicas` omitted: owned by the HPA (see backend.yaml).
   strategy:
     type: RollingUpdate
     rollingUpdate:

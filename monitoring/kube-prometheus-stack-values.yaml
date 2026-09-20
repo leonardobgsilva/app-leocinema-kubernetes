@@ -1,0 +1,127 @@
+# kube-prometheus-stack — values for the LeoCinema EKS cluster.
+#
+# Applied by ArgoCD: the `monitoring` Application (created by Terraform,
+# modules/monitoring) pulls the chart from the prometheus-community repo and
+# this file from Git. Change it here, commit, and the cluster follows.
+#
+# Sizing: the cluster is 2 x t3.medium (4 GiB, max 17 pods per node), so
+# everything below is deliberately small. This is a demo/dev setup:
+# Prometheus has no PersistentVolume (emptyDir) and keeps a short retention,
+# so metrics are lost when its pod is rescheduled.
+
+# ------------------------------------------------------------
+# EKS is a managed control plane: etcd, kube-scheduler and
+# kube-controller-manager expose no scrape endpoint, and kube-proxy binds
+# its metrics to localhost. Leaving them enabled would create permanently
+# firing "…Down" alerts, so both the scrape targets and their rules are off.
+# ------------------------------------------------------------
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+defaultRules:
+  rules:
+    etcd: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeControllerManager: false
+    kubeProxy: false
+
+# ------------------------------------------------------------
+# Prometheus
+# ------------------------------------------------------------
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors / PodMonitors / PrometheusRules from every
+    # namespace, not only those labelled with this Helm release. This is what
+    # lets the leocinema-<theme> namespaces expose their own metrics later.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+
+    retention: 12h
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 600Mi
+      limits:
+        memory: 1Gi
+
+# ------------------------------------------------------------
+# Alertmanager — running, but with no receivers configured yet
+# (Slack routing comes with the alerting step).
+# ------------------------------------------------------------
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 96Mi
+
+# ------------------------------------------------------------
+# Grafana
+# Not exposed outside the cluster: use `kubectl port-forward`
+# (Terraform output `grafana_port_forward_command`).
+# The admin credentials come from the `grafana-admin` Secret created by
+# Terraform, so the chart's well-known default password is never used.
+# ------------------------------------------------------------
+grafana:
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+
+  defaultDashboardsTimezone: America/Sao_Paulo
+
+  # Dashboards shipped as ConfigMaps labelled `grafana_dashboard: "1"` in any
+  # namespace are loaded automatically (sidecar), so custom dashboards can
+  # live in Git next to the app.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ------------------------------------------------------------
+# Supporting components
+# ------------------------------------------------------------
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 48Mi

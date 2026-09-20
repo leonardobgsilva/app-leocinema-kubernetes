@@ -7,7 +7,7 @@ Com o acesso externo habilitado, você pode usar os seguintes endereços IP para
    http://{{ .Values.ingressIp }}
 
    Backend:
-   http://{{ .Values.ingressIp }}/api/health
+   http://{{ .Values.ingressIp }}{{ if .Values.theme }}/{{ .Values.theme }}{{ end }}/api/health
 
 {{- else }}
 Com o acesso externo desabilitado, você pode acessar as aplicações internamente:

@@ -6,6 +6,23 @@ nodeSelectorEnabled: false
 
 ingressIp: ""           # set via ArgoCD helm parameter
 
+# Theme of this release (red | green | blue), set via ArgoCD helm parameter.
+# All themes share one NGINX Ingress controller, so each backend Ingress is
+# published under its own path prefix: /<theme>/api/...  CloudFront adds the
+# prefix through the origin_path of the API origin (see modules/s3-cloudfront).
+# Leave empty for local dev: the Ingress then serves plain /api/...
+theme: ""
+
+# Prometheus metrics. The backend serves /metrics on its own port (never
+# routed by the Ingress). serviceMonitor needs the Prometheus Operator CRDs
+# (installed by the `monitoring` Application), so it is off by default and
+# switched on by Terraform through an ArgoCD helm parameter.
+metrics:
+  port: 9091
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+
 db:
   image: bitnami/mariadb:latest
   servicePort: 3306
