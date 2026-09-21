@@ -92,12 +92,15 @@ grafana:
       labelValue: "1"
       searchNamespace: ALL
 
+  # Grafana 13 needs well over 256Mi while serving a dashboard: with that limit
+  # the container was OOMKilled (exit 137) every time a dashboard was opened,
+  # which also dropped any kubectl port-forward and left panels "Error loading".
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
+      cpu: 100m
       memory: 256Mi
+    limits:
+      memory: 1Gi
 
 # ------------------------------------------------------------
 # Supporting components
