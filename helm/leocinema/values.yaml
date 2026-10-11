@@ -33,7 +33,7 @@ db:
     storage: 1Gi
 
 backend:
-  image: leobgs/leocinema-backend:argocd
+  image: 808436685205.dkr.ecr.us-east-1.amazonaws.com/leocinema-backend:8a1152a
   servicePort: 80
   pullPolicy: IfNotPresent
   minReplicas: 2
