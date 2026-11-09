@@ -48,6 +48,11 @@ spec:
       containers:
         - name: leocinema
           image: "{{ .Values.frontend.image }}"
+          startupProbe:
+            tcpSocket:
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             tcpSocket:
               port: 3000

@@ -38,6 +38,13 @@ spec:
       containers:
         - name: mariadb
           image: "{{ .Values.db.image }}"
+          # MariaDB can take a while to initialise the data directory on first start;
+          # without a startupProbe the livenessProbe killed it (exit 137) before it was up.
+          startupProbe:
+            tcpSocket:
+              port: 3306
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
             tcpSocket:
               port: 3306

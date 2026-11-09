@@ -1,0 +1,26 @@
+# Local lab profile (Minikube or any cluster WITHOUT the Terraform modules).
+#
+#   helm install leocinema helm/leocinema/ -n leocinema --create-namespace \
+#     -f helm/leocinema/values-local.yaml
+#
+# The default values.yaml is the PRODUCTION profile (database on RDS, Secret and
+# ConfigMap managed by Terraform, frontend on S3 + CloudFront). This file switches
+# the chart to a self-contained setup: MariaDB inside the cluster, frontend enabled,
+# Secret and ConfigMap created by Helm.
+#
+# The credentials below are DEMO values for a throwaway lab. Do not reuse them.
+managedByTerraform: false
+createDb: true
+frontendEnabled: true
+nodeSelectorEnabled: false
+
+# 127.0.0.1 with `minikube tunnel`. On a cloud cluster override it:
+#   --set ingressIp=<INGRESS-IP>
+ingressIp: "127.0.0.1"
+
+env:
+  db_host: leocinema-db-svc        # name of the in-cluster MariaDB Service
+  db_database: leocinemadb
+  db_user: leocinema
+  db_password: demo-password
+  mariadb_root_password: demo-root-password

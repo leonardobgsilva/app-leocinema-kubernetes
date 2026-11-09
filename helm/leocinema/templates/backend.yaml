@@ -54,6 +54,22 @@ spec:
       containers:
         - name: leocinema
           image: "{{ .Values.backend.image }}"
+          # /health depends on the database. The startupProbe gives the app (and a
+          # database that is still initialising) up to 5 minutes before the
+          # livenessProbe can kill the container, which avoids restart cascades on
+          # a cold start. The readinessProbe keeps traffic away until it is healthy.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3333
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3333
+            periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health

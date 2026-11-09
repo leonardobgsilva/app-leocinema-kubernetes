@@ -41,7 +41,9 @@ app-leocinema-kubernetes/
 │       │   ├── db.yaml
 │       │   └── env.yaml
 │       ├── Chart.yaml
-│       └── values.yaml   # Chart configuration
+│       ├── values.yaml        # Chart configuration (production profile)
+│       └── values-local.yaml  # Local lab profile (Minikube)
+├── monitoring/           # kube-prometheus-stack values + Grafana dashboard (v2)
 └── manifests/            # Kubernetes manifests without Helm
     ├── manifest-backend.yaml
     ├── manifest-frontend.yaml
@@ -67,15 +69,21 @@ minikube addons enable ingress
 # Start the tunnel (keep this terminal open)
 minikube tunnel
 
-# Deploy (use 127.0.0.1 as ingressIp when using minikube tunnel)
+# Deploy with the local lab profile: MariaDB inside the cluster, frontend enabled,
+# Secret and ConfigMap created by Helm with demo credentials (see values-local.yaml)
 helm install leocinema helm/leocinema/ \
   --namespace leocinema \
   --create-namespace \
-  --set ingressIp="127.0.0.1" \
-  --set nodeSelectorEnabled=false
+  -f helm/leocinema/values-local.yaml
+
+# Check it
+kubectl get pods -n leocinema
+curl http://127.0.0.1/api/health
 ```
 
-> **Windows with Docker driver:** the Minikube IP (`minikube ip`) is not directly accessible from Windows. Use `minikube tunnel` and set `ingressIp` to `127.0.0.1`.
+> **Which profile?** The chart's default `values.yaml` is the **production profile** (database on RDS, Secret/ConfigMap managed by Terraform, frontend on S3 + CloudFront). Without those pieces the backend pods stay in `CreateContainerConfigError`. On a bare cluster always use `values-local.yaml`.
+
+> **Windows with Docker driver:** the Minikube IP (`minikube ip`) is not directly accessible from Windows. Use `minikube tunnel` (`values-local.yaml` already sets `ingressIp` to `127.0.0.1`).
 
 ### Cloud (EKS, GKE, AKS...)
 
@@ -93,9 +101,11 @@ kubectl label node <node-name> tier=app
 kubectl label node <node-name> tier=db
 
 # Deploy
+# (add --set nodeSelectorEnabled=true if you labeled the nodes)
 helm install leocinema helm/leocinema/ \
   --namespace leocinema \
   --create-namespace \
+  -f helm/leocinema/values-local.yaml \
   --set ingressIp="<INGRESS-IP>"
 ```
 
@@ -145,8 +155,17 @@ kubectl apply -f environment/argocd.yaml
 
 ArgoCD will automatically sync with the repository and keep the cluster state aligned with the code.
 
-> Before applying, make sure `values.yaml` is configured correctly:
-> - **Local (Minikube):** set `ingressIp` to `127.0.0.1`, run `minikube tunnel`, and set `nodeSelectorEnabled: false`
+> **Profiles:** the Application deploys the chart's default (production) profile, which expects the database, Secret and ConfigMap to come from Terraform. On a standalone cluster (Minikube, or a lab cluster without Terraform) add the local profile under `helm:` in `environment/argocd.yaml`:
+>
+> ```yaml
+> helm:
+>   valueFiles:
+>     - values-local.yaml
+>   parameters:
+>     # ingressIp, nodeSelectorEnabled...
+> ```
+>
+> - **Local (Minikube):** run `minikube tunnel` and keep `ingressIp` as `127.0.0.1`
 > - **Cloud:** set `ingressIp` to the external Ingress IP and optionally label your nodes with `tier=app` / `tier=db`
 
 ---
@@ -154,8 +173,8 @@ ArgoCD will automatically sync with the repository and keep the cluster state al
 ## 📄 Option 3 — Manifests (without Helm)
 
 ```bash
-# Edit the Ingress IP in manifest-env.yaml before applying
-# For local (Minikube): use 127.0.0.1 (with minikube tunnel) and remove the nodeSelector from backend, frontend and db manifests
+# manifest-env.yaml ships with DEMO credentials (lab only) and the Ingress IP set to 127.0.0.1 (minikube tunnel).
+# Cloud: edit the Ingress IP there. Local (Minikube): remove the nodeSelector from the backend, frontend and db manifests.
 kubectl apply -f manifests/manifest-env.yaml
 kubectl apply -f manifests/manifest-db.yaml
 kubectl apply -f manifests/manifest-backend.yaml
@@ -168,12 +187,17 @@ kubectl apply -f manifests/manifest-frontend.yaml
 
 | Parameter | Description | Default |
 |---|---|---|
+| `managedByTerraform` | Secret/ConfigMap come from Terraform (production profile) | `true` |
+| `createDb` | Runs MariaDB inside the cluster | `false` |
+| `frontendEnabled` | Deploys the frontend in Kubernetes | `false` |
 | `ingressEnabled` | Enables the external Ingress | `true` |
-| `nodeSelectorEnabled` | Enables the nodeSelector | `true` |
-| `ingressIp` | External Ingress IP | `<INGRESS-IP>` |
+| `nodeSelectorEnabled` | Enables the nodeSelector | `false` |
+| `ingressIp` | External Ingress IP | `""` |
+| `theme` | Release theme (`red`/`green`/`blue`); prefixes the Ingress path | `""` |
+| `metrics.serviceMonitor.enabled` | Creates the Prometheus ServiceMonitor | `false` |
 | `db.minReplicas` | Minimum database replicas | `1` |
-| `db.maxReplicas` | Maximum database replicas | `15` |
-| `backend.image` | Backend Docker image | `leobgs/leocinema-backend:argocd` |
+| `db.maxReplicas` | Maximum database replicas | `3` |
+| `backend.image` | Backend Docker image | `leobgs/leocinema-backend:v2` |
 | `frontend.image` | Frontend Docker image | `leobgs/leocinema-frontend:red` |
 
 ## 🎨 Frontend Themes
@@ -192,6 +216,17 @@ To switch themes, update `frontend.image` in `values.yaml`:
 frontend:
   image: leobgs/leocinema-frontend:green
 ```
+
+## 📈 Monitoring (v2)
+
+Optional observability layer, used on the EKS lab cluster:
+
+- The backend serves Prometheus metrics at `/metrics` on its own port (`metrics.port`, `9091`), which the Ingress never routes.
+- `metrics.serviceMonitor.enabled=true` creates a `ServiceMonitor`; it needs the Prometheus Operator CRDs, so it is off by default.
+- `monitoring/kube-prometheus-stack-values.yaml` holds the kube-prometheus-stack values (sized for a small demo cluster, Prometheus without persistent storage).
+- `monitoring/manifests/dashboards/leocinema-environments.json` is the Grafana dashboard; the `theme` label lets it filter by environment (red / green / blue).
+
+> **Note:** the default backend image, `leobgs/leocinema-backend:v2`, is built from the current `app-leocinema-backend` source (Node 20) and serves `/metrics`. The older `:argocd` tag (2026-06-28) does not, so a ServiceMonitor pointed at it has nothing to scrape.
 
 ## 🌐 Accessing the Application
 

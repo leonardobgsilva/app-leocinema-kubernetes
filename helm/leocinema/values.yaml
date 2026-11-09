@@ -6,6 +6,11 @@ nodeSelectorEnabled: false
 
 ingressIp: ""           # set via ArgoCD helm parameter
 
+# Local ports used by NOTES.txt when ingressEnabled=false (kubectl port-forward).
+localhost:
+  frontend: 8485
+  backend: 8687
+
 # Theme of this release (red | green | blue), set via ArgoCD helm parameter.
 # All themes share one NGINX Ingress controller, so each backend Ingress is
 # published under its own path prefix: /<theme>/api/...  CloudFront adds the
@@ -33,7 +38,7 @@ db:
     storage: 1Gi
 
 backend:
-  image: leobgs/leocinema-backend:argocd
+  image: leobgs/leocinema-backend:v2
   servicePort: 80
   pullPolicy: IfNotPresent
   minReplicas: 2

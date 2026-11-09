@@ -9,8 +9,8 @@ metadata:
   name: leocinema-configmap
   namespace: leocinema
 data:
-  FRONTEND_URL: "http://172.171.58.32"
-  BACKEND_URL: "172.171.58.32/api/comprar-ingresso"
+  FRONTEND_URL: "http://127.0.0.1"
+  BACKEND_URL: "127.0.0.1/api/comprar-ingresso"
 ---
 apiVersion: v1
 kind: Secret
@@ -18,9 +18,11 @@ metadata:
   name: leocinema-secrets
   namespace: leocinema
 type: Opaque
-data:
-  DB_HOST: bWFyaWFkYi1sZW9jaW5lbWEtc3Zj
-  MARIADB_ROOT_PASSWORD: bGVvYm9yZ2VzMzAwNQ==
-  MARIADB_DATABASE: bGVvY2luZW1hZGI=
-  MARIADB_USER: bGVvY2luZW1hdXNlcg==
-  MARIADB_PASSWORD: bGVvY2luZW1hcGFzcw==
+# Lab-only DEMO values (stringData: plain text, Kubernetes encodes it).
+# Replace them before using these manifests anywhere but a throwaway cluster.
+stringData:
+  DB_HOST: mariadb-leocinema-svc
+  MARIADB_ROOT_PASSWORD: demo-root-password
+  MARIADB_DATABASE: leocinemadb
+  MARIADB_USER: leocinema
+  MARIADB_PASSWORD: demo-password
