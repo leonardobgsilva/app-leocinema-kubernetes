@@ -66,6 +66,9 @@ Choose one of the three paths below. They are independent of each other.
 minikube start
 minikube addons enable ingress
 
+# Wait for the NGINX controller to be ready before installing the chart
+kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s
+
 # Start the tunnel (keep this terminal open)
 minikube tunnel
 
